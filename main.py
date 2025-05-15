@@ -1,11 +1,12 @@
 import os
 import logging
+import base64
+from typing import List
+from io import BytesIO
+from PIL import Image
+
 from flask import Flask, request, jsonify, render_template, url_for
 from werkzeug.utils import secure_filename
-from typing import Optional, List
-import base64
-from PIL import Image
-from io import BytesIO
 
 from models import OCRResponse, CameraRequest
 from ocr_service import process_image_ocr
