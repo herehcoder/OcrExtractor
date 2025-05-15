@@ -17,7 +17,7 @@ from camera_service import process_camera_image
 ##########################
 # IMPLEMENTAÇÃO FLASK
 ##########################
-from flask import Flask, request, jsonify, render_template, url_for
+from flask import Flask, request, jsonify, render_template, url_for, redirect
 from werkzeug.utils import secure_filename
 
 # Inicializar Flask app
@@ -26,6 +26,12 @@ app = Flask(__name__,
     template_folder='templates'
 )
 app.secret_key = os.environ.get("SESSION_SECRET", "dev_secret_key")
+
+# Adicionar endpoint para redirecionar para a documentação da API
+@app.route('/api-docs')
+def api_docs():
+    """Redirecionamento para documentação da API"""
+    return render_template('api_docs.html')
 
 @app.route('/')
 def read_root():
@@ -40,6 +46,9 @@ def ocr_upload():
     Returns:
         JSON: Extracted text and status
     """
+    import time
+    start_time = time.time()
+    
     if 'file' not in request.files:
         return jsonify({"status": "error", "message": "No file part"}), 400
     
@@ -48,7 +57,13 @@ def ocr_upload():
     if file.filename == '':
         return jsonify({"status": "error", "message": "No selected file"}), 400
     
+    # Obter parâmetros opcionais da consulta
+    language = request.args.get('language', 'por')
+    document_type = request.args.get('document_type', 'generic')
+    enhanced_processing = request.args.get('enhanced_processing', 'true').lower() == 'true'
+    
     logger.info(f"Received file upload: {file.filename}")
+    logger.info(f"Parameters: language={language}, document_type={document_type}, enhanced={enhanced_processing}")
     
     try:
         # Read the file content
@@ -70,9 +85,15 @@ def ocr_upload():
         # Process the image with OCR
         extracted_text = process_image_ocr(image)
         
+        # Calcular tempo de processamento
+        processing_time = (time.time() - start_time) * 1000  # em milissegundos
+        
         return jsonify({
             "text": extracted_text,
-            "status": "success"
+            "status": "success",
+            "processing_time_ms": processing_time,
+            "language_detected": language,
+            "document_type": document_type
         })
     
     except Exception as e:
@@ -87,6 +108,9 @@ def ocr_camera():
     Returns:
         JSON: Extracted text and status
     """
+    import time
+    start_time = time.time()
+    
     logger.info("Received camera capture request")
     
     try:
@@ -94,6 +118,13 @@ def ocr_camera():
         data = request.json
         if not data or 'image_data' not in data:
             return jsonify({"status": "error", "message": "Missing image data"}), 400
+        
+        # Obter parâmetros opcionais do JSON
+        language = data.get('language', 'por')
+        document_type = data.get('document_type', 'generic')
+        enhanced_processing = data.get('enhanced_processing', True)
+        
+        logger.info(f"Parameters: language={language}, document_type={document_type}, enhanced={enhanced_processing}")
         
         # Process the camera image
         image = process_camera_image(data['image_data'])
@@ -104,9 +135,15 @@ def ocr_camera():
         # Process the image with OCR
         extracted_text = process_image_ocr(image)
         
+        # Calcular tempo de processamento
+        processing_time = (time.time() - start_time) * 1000  # em milissegundos
+        
         return jsonify({
             "text": extracted_text,
-            "status": "success"
+            "status": "success",
+            "processing_time_ms": processing_time,
+            "language_detected": language,
+            "document_type": document_type
         })
     
     except Exception as e:

@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API OCR - Documentação</title>
+    <link rel="stylesheet" href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .endpoint {
+            margin-bottom: 30px;
+            border-left: 4px solid #3498db;
+            padding-left: 15px;
+        }
+        
+        .method {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        
+        .get {
+            background-color: #61affe;
+            color: white;
+        }
+        
+        .post {
+            background-color: #49cc90;
+            color: white;
+        }
+        
+        pre {
+            background-color: #1f2937;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            color: #f3f4f6;
+            margin: 10px 0;
+        }
+        
+        .parameter {
+            margin: 5px 0;
+            padding: 8px;
+            background-color: #374151;
+            border-radius: 4px;
+        }
+        
+        .parameter-name {
+            font-weight: bold;
+            color: #3498db;
+        }
+        
+        .parameter-type {
+            color: #e67e22;
+            font-style: italic;
+        }
+        
+        .parameters {
+            margin: 15px 0;
+        }
+        
+        .response {
+            margin: 15px 0;
+        }
+        
+        .example {
+            margin-top: 20px;
+        }
+        
+        .tab-buttons {
+            display: flex;
+            margin-bottom: 10px;
+        }
+        
+        .tab-button {
+            padding: 8px 12px;
+            cursor: pointer;
+            border: none;
+            background-color: #374151;
+            color: #f3f4f6;
+            margin-right: 5px;
+            border-radius: 4px 4px 0 0;
+        }
+        
+        .tab-button.active {
+            background-color: #3498db;
+            color: white;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+<body data-bs-theme="dark">
+    <header>
+        <div class="container">
+            <h1>API OCR - Documentação</h1>
+            <p>Extraia texto de documentos usando nossa API OCR</p>
+        </div>
+    </header>
+    
+    <div class="container">
+        <div class="card">
+            <h2>Visão Geral</h2>
+            <p>Esta API oferece serviços de reconhecimento óptico de caracteres (OCR) para extrair texto de documentos digitalizados e imagens.</p>
+            <p>A API está disponível em duas implementações:</p>
+            <ul>
+                <li><strong>Flask API</strong> (padrão): Versão estável e simplificada</li>
+                <li><strong>FastAPI</strong> (nova): Versão moderna com recursos adicionais, como documentação interativa e validação de tipos</li>
+            </ul>
+            
+            <h3>URL Base</h3>
+            <p>Flask API: <code>http://localhost:5000</code></p>
+            <p>FastAPI: <code>http://localhost:8000</code></p>
+        </div>
+        
+        <div class="card">
+            <h2>Requisições e Respostas</h2>
+            
+            <div class="endpoint">
+                <h3><span class="method post">POST</span> /ocr/upload</h3>
+                <p>Processa OCR em uma imagem de documento enviada por upload.</p>
+                
+                <h4>Parâmetros de Consulta</h4>
+                <div class="parameters">
+                    <div class="parameter">
+                        <span class="parameter-name">language</span> <span class="parameter-type">(string, opcional)</span>: Idioma para OCR 
+                        <ul>
+                            <li><code>por</code> - Português (padrão)</li>
+                            <li><code>eng</code> - Inglês</li>
+                            <li><code>spa</code> - Espanhol</li>
+                            <li><code>auto</code> - Auto-detecção</li>
+                        </ul>
+                    </div>
+                    <div class="parameter">
+                        <span class="parameter-name">document_type</span> <span class="parameter-type">(string, opcional)</span>: Tipo de documento
+                        <ul>
+                            <li><code>rg</code> - RG</li>
+                            <li><code>cpf</code> - CPF</li>
+                            <li><code>cnh</code> - CNH</li>
+                            <li><code>generic</code> - Genérico (padrão)</li>
+                        </ul>
+                    </div>
+                    <div class="parameter">
+                        <span class="parameter-name">enhanced_processing</span> <span class="parameter-type">(boolean, opcional)</span>: Usar processamento avançado para melhorar resultados
+                        <ul>
+                            <li><code>true</code> - Ativar (padrão)</li>
+                            <li><code>false</code> - Desativar</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <h4>Corpo da Requisição</h4>
+                <p>Formulário multipart com campo <code>file</code> contendo a imagem do documento.</p>
+                
+                <h4>Resposta</h4>
+                <div class="response">
+                    <pre>{
+  "text": ["Lista de linhas de texto extraídas"],
+  "status": "success",
+  "processing_time_ms": 235.45,
+  "language_detected": "por",
+  "document_type": "rg"
+}</pre>
+                </div>
+                
+                <div class="example">
+                    <h4>Exemplos de Uso</h4>
+                    
+                    <div class="tab-buttons">
+                        <button class="tab-button active" onclick="showTab('curl-upload')">cURL</button>
+                        <button class="tab-button" onclick="showTab('python-upload')">Python</button>
+                        <button class="tab-button" onclick="showTab('js-upload')">JavaScript</button>
+                    </div>
+                    
+                    <div id="curl-upload" class="tab-content active">
+                        <pre>curl -X POST "http://localhost:8000/ocr/upload?language=por&document_type=rg" \
+     -F "file=@/caminho/para/documento.jpg"</pre>
+                    </div>
+                    
+                    <div id="python-upload" class="tab-content">
+                        <pre>import requests
+
+url = "http://localhost:8000/ocr/upload"
+params = {"language": "por", "document_type": "rg"}
+files = {"file": open("caminho/para/documento.jpg", "rb")}
+
+response = requests.post(url, params=params, files=files)
+print(response.json())</pre>
+                    </div>
+                    
+                    <div id="js-upload" class="tab-content">
+                        <pre>const formData = new FormData();
+formData.append('file', fileInput.files[0]);
+
+fetch('http://localhost:8000/ocr/upload?language=por&document_type=rg', {
+  method: 'POST',
+  body: formData
+})
+.then(response => response.json())
+.then(data => console.log(data));</pre>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="endpoint">
+                <h3><span class="method post">POST</span> /ocr/camera</h3>
+                <p>Processa OCR em uma imagem capturada da câmera.</p>
+                
+                <h4>Corpo da Requisição</h4>
+                <pre>{
+  "image_data": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD...",
+  "language": "por",
+  "document_type": "rg",
+  "enhanced_processing": true
+}</pre>
+                
+                <h4>Resposta</h4>
+                <div class="response">
+                    <pre>{
+  "text": ["Lista de linhas de texto extraídas"],
+  "status": "success",
+  "processing_time_ms": 235.45,
+  "language_detected": "por",
+  "document_type": "rg"
+}</pre>
+                </div>
+                
+                <div class="example">
+                    <h4>Exemplos de Uso</h4>
+                    
+                    <div class="tab-buttons">
+                        <button class="tab-button active" onclick="showTab('curl-camera')">cURL</button>
+                        <button class="tab-button" onclick="showTab('python-camera')">Python</button>
+                        <button class="tab-button" onclick="showTab('js-camera')">JavaScript</button>
+                    </div>
+                    
+                    <div id="curl-camera" class="tab-content active">
+                        <pre>curl -X POST "http://localhost:8000/ocr/camera" \
+     -H "Content-Type: application/json" \
+     -d '{"image_data": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAA...", "language": "por", "document_type": "rg"}'</pre>
+                    </div>
+                    
+                    <div id="python-camera" class="tab-content">
+                        <pre>import requests
+import base64
+
+# Ler imagem e codificar em base64
+with open("caminho/para/imagem.jpg", "rb") as image_file:
+    encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
+
+url = "http://localhost:8000/ocr/camera"
+headers = {"Content-Type": "application/json"}
+data = {
+    "image_data": f"data:image/jpeg;base64,{encoded_string}",
+    "language": "por",
+    "document_type": "rg"
+}
+
+response = requests.post(url, json=data, headers=headers)
+print(response.json())</pre>
+                    </div>
+                    
+                    <div id="js-camera" class="tab-content">
+                        <pre>// Capturar imagem da câmera
+const canvas = document.createElement('canvas');
+const context = canvas.getContext('2d');
+context.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+const imageData = canvas.toDataURL('image/jpeg');
+
+fetch('http://localhost:8000/ocr/camera', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    image_data: imageData,
+    language: 'por',
+    document_type: 'rg'
+  })
+})
+.then(response => response.json())
+.then(data => console.log(data));</pre>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="endpoint">
+                <h3><span class="method get">GET</span> /api/stats</h3>
+                <p>Obtém estatísticas sobre o uso da API OCR (apenas FastAPI).</p>
+                
+                <h4>Resposta</h4>
+                <div class="response">
+                    <pre>{
+  "total_requests": 42,
+  "successful_requests": 38,
+  "failed_requests": 4,
+  "average_processing_time_ms": 215.67
+}</pre>
+                </div>
+            </div>
+            
+            <div class="endpoint">
+                <h3><span class="method get">GET</span> /api/health</h3>
+                <p>Verifica o status de saúde da API (apenas FastAPI).</p>
+                
+                <h4>Resposta</h4>
+                <div class="response">
+                    <pre>{
+  "status": "healthy",
+  "version": "1.0.0",
+  "api_type": "FastAPI",
+  "endpoints": [
+    {"path": "/", "methods": ["GET"], "description": "Interface web"},
+    {"path": "/ocr/upload", "methods": ["POST"], "description": "OCR por upload de arquivo"},
+    {"path": "/ocr/camera", "methods": ["POST"], "description": "OCR por captura de câmera"},
+    {"path": "/api/stats", "methods": ["GET"], "description": "Estatísticas da API"},
+    {"path": "/api/health", "methods": ["GET"], "description": "Verificação de saúde"},
+    {"path": "/docs", "methods": ["GET"], "description": "Documentação Swagger"},
+    {"path": "/redoc", "methods": ["GET"], "description": "Documentação ReDoc"}
+  ]
+}</pre>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>Documentação Interativa</h2>
+            <p>A versão FastAPI oferece documentação interativa onde você pode testar a API diretamente do navegador:</p>
+            <ul>
+                <li><a href="http://localhost:8000/docs" target="_blank">Swagger UI</a></li>
+                <li><a href="http://localhost:8000/redoc" target="_blank">ReDoc</a></li>
+            </ul>
+        </div>
+    </div>
+    
+    <script>
+        function showTab(tabId) {
+            // Hide all tab contents
+            const tabContents = document.querySelectorAll('.tab-content');
+            tabContents.forEach(tab => tab.classList.remove('active'));
+            
+            // Deactivate all tab buttons
+            const tabButtons = document.querySelectorAll('.tab-button');
+            tabButtons.forEach(button => button.classList.remove('active'));
+            
+            // Show the selected tab content
+            document.getElementById(tabId).classList.add('active');
+            
+            // Activate the clicked tab button
+            document.querySelector(`.tab-button[onclick="showTab('${tabId}')"]`).classList.add('active');
+        }
+    </script>
+</body>
+</html>
