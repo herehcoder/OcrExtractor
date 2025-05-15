@@ -225,8 +225,17 @@ def compress_image(image, max_size=1800, quality=85):
             new_height = max_size
             new_width = int(width * (max_size / height))
         
-        # Redimensionar
-        image = image.resize((new_width, new_height), Image.LANCZOS)
+        # Redimensionar usando o melhor método disponível
+        try:
+            # Tentar LANCZOS (melhor qualidade, disponível em versões recentes do Pillow)
+            image = image.resize((new_width, new_height), Image.LANCZOS)
+        except (AttributeError, ImportError):
+            # Fallback para método mais antigo
+            try:
+                image = image.resize((new_width, new_height), Image.ANTIALIAS)
+            except (AttributeError, ImportError):
+                # Último recurso
+                image = image.resize((new_width, new_height))
     
     # Converter para RGB se for RGBA (para JPG)
     if image.mode == 'RGBA':

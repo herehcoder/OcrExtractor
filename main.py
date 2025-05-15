@@ -1,9 +1,11 @@
 import os
+import time
 import logging
 import base64
 from typing import List
 from io import BytesIO
 from PIL import Image
+from functools import wraps
 
 # Configurar logging
 logging.basicConfig(level=logging.DEBUG)
@@ -14,10 +16,15 @@ from models import OCRResponse, CameraRequest
 from ocr_service import process_image_ocr
 from camera_service import process_camera_image
 
+# Importar módulos de segurança e monitoramento
+from auth import require_api_key, verify_api_key, create_api_key
+from security import validate_file_upload, add_security_headers, compress_image, log_request_info
+from monitoring import api_monitor
+
 ##########################
 # IMPLEMENTAÇÃO FLASK
 ##########################
-from flask import Flask, request, jsonify, render_template, url_for, redirect
+from flask import Flask, request, jsonify, render_template, url_for, redirect, g
 from werkzeug.utils import secure_filename
 
 # Inicializar Flask app
@@ -26,6 +33,39 @@ app = Flask(__name__,
     template_folder='templates'
 )
 app.secret_key = os.environ.get("SESSION_SECRET", "dev_secret_key")
+app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024  # 10MB max upload size
+app.config['API_KEY_REQUIRED'] = False  # Definir como True em produção
+
+# Middleware para adicionar cabeçalhos de segurança
+@app.after_request
+def after_request(response):
+    return add_security_headers(response)
+
+# Middleware para logging de requisições
+@app.before_request
+def before_request():
+    log_request_info()
+    g.start_time = time.time()
+
+# Middleware para monitoramento
+@app.after_request
+def after_request_monitoring(response):
+    if hasattr(g, 'start_time'):
+        duration_ms = (time.time() - g.start_time) * 1000
+        endpoint = request.endpoint or 'unknown'
+        status_code = response.status_code
+        ip = request.remote_addr
+        api_monitor.record_request(endpoint, status_code, duration_ms, ip)
+    return response
+
+# Decorador para API key opcional
+def optional_api_key(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if app.config['API_KEY_REQUIRED']:
+            return require_api_key(f)(*args, **kwargs)
+        return f(*args, **kwargs)
+    return decorated_function
 
 # Adicionar endpoint para redirecionar para a documentação da API
 @app.route('/api-docs')
@@ -39,6 +79,8 @@ def read_root():
     return render_template("index.html")
 
 @app.route('/ocr/upload', methods=['POST'])
+@optional_api_key
+@validate_file_upload
 def ocr_upload():
     """
     Process OCR on an uploaded document image
@@ -46,16 +88,10 @@ def ocr_upload():
     Returns:
         JSON: Extracted text and status
     """
-    import time
     start_time = time.time()
     
-    if 'file' not in request.files:
-        return jsonify({"status": "error", "message": "No file part"}), 400
-    
+    # A validação do arquivo já foi feita pelo decorator validate_file_upload
     file = request.files['file']
-    
-    if file.filename == '':
-        return jsonify({"status": "error", "message": "No selected file"}), 400
     
     # Obter parâmetros opcionais da consulta
     language = request.args.get('language', 'por')
@@ -68,6 +104,7 @@ def ocr_upload():
     try:
         # Read the file content
         file_bytes = file.read()
+        file_size = len(file_bytes)
         
         # Convert to Image using PIL
         image_pil = Image.open(BytesIO(file_bytes))
@@ -76,17 +113,24 @@ def ocr_upload():
         if image_pil.mode != 'RGB':
             image_pil = image_pil.convert('RGB')
             
-        # Use the image directly
-        image = image_pil
-        
-        if image is None:
-            return jsonify({"status": "error", "message": "Invalid image file"}), 400
+        # Comprimir imagem se for grande
+        if file_size > 1024 * 1024:  # Se maior que 1MB
+            image_pil = compress_image(image_pil, max_size=1800, quality=85)
         
         # Process the image with OCR
-        extracted_text = process_image_ocr(image)
+        extracted_text = process_image_ocr(image_pil)
         
         # Calcular tempo de processamento
         processing_time = (time.time() - start_time) * 1000  # em milissegundos
+        
+        # Registrar métricas
+        api_monitor.record_ocr_processing(
+            duration_ms=processing_time,
+            success=True,
+            language=language,
+            document_type=document_type,
+            file_size=file_size
+        )
         
         return jsonify({
             "text": extracted_text,
@@ -98,9 +142,23 @@ def ocr_upload():
     
     except Exception as e:
         logger.error(f"Error processing upload: {str(e)}")
-        return jsonify({"status": "error", "message": f"OCR processing error: {str(e)}"}), 500
+        
+        # Registrar falha
+        api_monitor.record_ocr_processing(
+            duration_ms=0,
+            success=False,
+            language=language,
+            document_type=document_type
+        )
+        
+        return jsonify({
+            "status": "error", 
+            "message": f"OCR processing error: {str(e)}",
+            "error_code": 500
+        }), 500
 
 @app.route('/ocr/camera', methods=['POST'])
+@optional_api_key
 def ocr_camera():
     """
     Process OCR on an image captured from camera
@@ -108,7 +166,6 @@ def ocr_camera():
     Returns:
         JSON: Extracted text and status
     """
-    import time
     start_time = time.time()
     
     logger.info("Received camera capture request")
@@ -117,7 +174,11 @@ def ocr_camera():
         # Get JSON data from request
         data = request.json
         if not data or 'image_data' not in data:
-            return jsonify({"status": "error", "message": "Missing image data"}), 400
+            return jsonify({
+                "status": "error", 
+                "message": "Missing image data",
+                "error_code": 400
+            }), 400
         
         # Obter parâmetros opcionais do JSON
         language = data.get('language', 'por')
@@ -130,13 +191,38 @@ def ocr_camera():
         image = process_camera_image(data['image_data'])
         
         if image is None:
-            return jsonify({"status": "error", "message": "Invalid camera image"}), 400
+            return jsonify({
+                "status": "error", 
+                "message": "Invalid camera image",
+                "error_code": 400
+            }), 400
+        
+        # Extrair tamanho da imagem base64
+        image_data = data['image_data']
+        if image_data.startswith('data:image'):
+            # Extrair parte base64
+            image_data = image_data.split(',')[1]
+        image_bytes = base64.b64decode(image_data)
+        file_size = len(image_bytes)
+        
+        # Comprimir imagem se for grande
+        if file_size > 1024 * 1024:  # Se maior que 1MB
+            image = compress_image(image, max_size=1800, quality=85)
         
         # Process the image with OCR
         extracted_text = process_image_ocr(image)
         
         # Calcular tempo de processamento
         processing_time = (time.time() - start_time) * 1000  # em milissegundos
+        
+        # Registrar métricas
+        api_monitor.record_ocr_processing(
+            duration_ms=processing_time,
+            success=True,
+            language=language,
+            document_type=document_type,
+            file_size=file_size
+        )
         
         return jsonify({
             "text": extracted_text,
@@ -148,14 +234,159 @@ def ocr_camera():
     
     except Exception as e:
         logger.error(f"Error processing camera image: {str(e)}")
-        return jsonify({"status": "error", "message": f"OCR processing error: {str(e)}"}), 500
+        
+        # Registrar falha com valores padrão
+        lang = 'por'
+        doc_type = 'generic'
+        
+        # Tentar obter valores do escopo corrente, com segurança
+        try:
+            if 'data' in locals() and isinstance(data, dict):
+                if 'language' in data:
+                    lang = data['language']
+                if 'document_type' in data:
+                    doc_type = data['document_type']
+        except Exception:
+            # Silenciar qualquer erro ao tentar acessar dados que podem não existir
+            pass
+            
+        api_monitor.record_ocr_processing(
+            duration_ms=0,
+            success=False,
+            language=lang,
+            document_type=doc_type
+        )
+        
+        return jsonify({
+            "status": "error", 
+            "message": f"OCR processing error: {str(e)}",
+            "error_code": 500
+        }), 500
+
+@app.route('/api/stats', methods=['GET'])
+@optional_api_key
+def get_api_stats():
+    """
+    Obter estatísticas de uso da API
+    
+    Returns:
+        JSON: Estatísticas de uso
+    """
+    try:
+        stats = api_monitor.get_stats()
+        return jsonify({
+            "status": "success",
+            "stats": stats
+        })
+    except Exception as e:
+        logger.error(f"Error retrieving stats: {str(e)}")
+        return jsonify({
+            "status": "error",
+            "message": f"Error retrieving stats: {str(e)}",
+            "error_code": 500
+        }), 500
+
+@app.route('/api/detailed-stats', methods=['GET'])
+@optional_api_key
+def get_detailed_stats():
+    """
+    Obter estatísticas detalhadas
+    
+    Returns:
+        JSON: Estatísticas detalhadas
+    """
+    try:
+        # Obter período de dias da query string
+        days = request.args.get('days', 7, type=int)
+        stats = api_monitor.get_detailed_stats(days=days)
+        return jsonify({
+            "status": "success",
+            "stats": stats
+        })
+    except Exception as e:
+        logger.error(f"Error retrieving detailed stats: {str(e)}")
+        return jsonify({
+            "status": "error",
+            "message": f"Error retrieving detailed stats: {str(e)}",
+            "error_code": 500
+        }), 500
+
+@app.route('/api/health', methods=['GET'])
+def health():
+    """
+    Verificar saúde da API
+    
+    Returns:
+        JSON: Status da API
+    """
+    return jsonify({
+        "status": "healthy",
+        "version": "1.0.0",
+        "uptime": "OK",
+        "endpoints": [
+            {"path": "/", "methods": ["GET"], "description": "Interface web"},
+            {"path": "/ocr/upload", "methods": ["POST"], "description": "OCR por upload de arquivo"},
+            {"path": "/ocr/camera", "methods": ["POST"], "description": "OCR por captura de câmera"},
+            {"path": "/api/stats", "methods": ["GET"], "description": "Estatísticas da API"},
+            {"path": "/api/health", "methods": ["GET"], "description": "Verificação de saúde"},
+            {"path": "/api-docs", "methods": ["GET"], "description": "Documentação da API"}
+        ]
+    })
+
+@app.route('/admin/api-keys', methods=['POST'])
+@require_api_key
+def admin_create_api_key():
+    """
+    Criar nova API key (apenas para admins)
+    
+    Returns:
+        JSON: Nova API key
+    """
+    data = request.get_json()
+    
+    if not data:
+        return jsonify({
+            "status": "error",
+            "message": "No data provided",
+            "error_code": 400
+        }), 400
+    
+    try:
+        user_id = data.get('user_id')
+        name = data.get('name')
+        rate_limit = data.get('rate_limit', 60)
+        expires_days = data.get('expires_days', 30)
+        permissions = data.get('permissions', ['read'])
+        
+        if not user_id or not name:
+            return jsonify({
+                "status": "error",
+                "message": "user_id and name are required",
+                "error_code": 400
+            }), 400
+        
+        api_key_data = create_api_key(user_id, name, rate_limit, expires_days, permissions)
+        
+        return jsonify({
+            "status": "success",
+            "data": api_key_data
+        })
+    except Exception as e:
+        logger.error(f"Error creating API key: {str(e)}")
+        return jsonify({
+            "status": "error",
+            "message": f"Error creating API key: {str(e)}",
+            "error_code": 500
+        }), 500
 
 @app.errorhandler(Exception)
 def handle_exception(e):
     """Global exception handler"""
+    logger.error(f"Unhandled exception: {str(e)}")
     return jsonify({
         "status": "error",
-        "message": str(e)
+        "message": f"Server error: {str(e)}",
+        "error_code": 500
     }), 500
 
 ##########################
