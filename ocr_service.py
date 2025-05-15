@@ -69,7 +69,7 @@ def extract_text_from_image(image):
             return [
                 "TIPO DE DOCUMENTO: Carteira de Identidade (RG)",
                 "NOME: Davi Benedito Caleb Silveira Carvalho Ponce Leon Leite",
-                "DATA DE NASCIMENTO: 20/07/1990",
+                "DATA DE NASCIMENTO: 20/07/1950",
                 "NATURALIDADE: Rosário da Limeira/MG",
                 "FILIAÇÃO:",
                 "   1. Carlos Eduardo Miguel Eduardo Brito Leite",
