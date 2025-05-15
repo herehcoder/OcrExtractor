@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FastAPI OCR Client</title>
+    <style>
+        :root {
+            --primary-color: #3498db;
+            --secondary-color: #2ecc71;
+            --dark-color: #2c3e50;
+            --light-color: #ecf0f1;
+            --error-color: #e74c3c;
+            --success-color: #27ae60;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: var(--light-color);
+            color: var(--dark-color);
+        }
+        
+        h1, h2, h3 {
+            color: var(--primary-color);
+        }
+        
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .card {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        
+        select, input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        
+        button:hover {
+            background-color: #2980b9;
+        }
+        
+        .results {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-radius: 4px;
+            border-left: 4px solid var(--primary-color);
+        }
+        
+        .error {
+            background-color: #feeaea;
+            padding: 15px;
+            border-radius: 4px;
+            border-left: 4px solid var(--error-color);
+            color: var(--error-color);
+        }
+        
+        .preview {
+            max-width: 100%;
+            max-height: 300px;
+            margin-top: 10px;
+            display: none;
+            border-radius: 4px;
+        }
+        
+        .result-item {
+            padding: 8px;
+            margin: 5px 0;
+            background-color: #f0f0f0;
+            border-radius: 4px;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-radius: 50%;
+            border-top: 4px solid var(--primary-color);
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .stats {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        .stat-card {
+            flex: 1;
+            background-color: white;
+            padding: 15px;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            min-width: 200px;
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+        
+        .tabs {
+            display: flex;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .tab {
+            padding: 10px 15px;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+        }
+        
+        .tab.active {
+            border-bottom: 3px solid var(--primary-color);
+            font-weight: bold;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <h1>FastAPI OCR Document Processing</h1>
+    <p>Client de exemplo para a API FastAPI OCR</p>
+    
+    <div class="container">
+        <div class="card">
+            <div class="tabs">
+                <div class="tab active" data-target="upload-tab">Upload de Arquivo</div>
+                <div class="tab" data-target="camera-tab">Captura de Câmera</div>
+                <div class="tab" data-target="stats-tab">Estatísticas</div>
+            </div>
+            
+            <!-- Upload Tab -->
+            <div id="upload-tab" class="tab-content active">
+                <h2>Upload de Documento</h2>
+                <div class="form-group">
+                    <label for="file">Selecione um arquivo de imagem:</label>
+                    <input type="file" id="file" accept="image/*">
+                </div>
+                
+                <div class="form-group">
+                    <label for="language">Idioma:</label>
+                    <select id="language">
+                        <option value="por">Português</option>
+                        <option value="eng">Inglês</option>
+                        <option value="spa">Espanhol</option>
+                        <option value="auto">Auto-detecção</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="docType">Tipo de Documento:</label>
+                    <select id="docType">
+                        <option value="rg">RG</option>
+                        <option value="cpf">CPF</option>
+                        <option value="cnh">CNH</option>
+                        <option value="generic">Genérico</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="enhanced" checked>
+                        Processamento avançado
+                    </label>
+                </div>
+                
+                <img id="uploadPreview" class="preview">
+                
+                <button id="uploadBtn" disabled>Processar Documento</button>
+                
+                <div id="uploadLoading" class="loading">
+                    <div class="spinner"></div>
+                    <p>Processando documento...</p>
+                </div>
+                
+                <div id="uploadResults" class="results" style="display: none;"></div>
+                <div id="uploadError" class="error" style="display: none;"></div>
+            </div>
+            
+            <!-- Camera Tab -->
+            <div id="camera-tab" class="tab-content">
+                <h2>Captura de Câmera</h2>
+                <div>
+                    <button id="startCameraBtn">Iniciar Câmera</button>
+                    <button id="captureCameraBtn" style="display: none;">Capturar</button>
+                    <button id="retakeCameraBtn" style="display: none;">Nova Captura</button>
+                </div>
+                
+                <div style="margin-top: 15px;">
+                    <video id="cameraView" style="width: 100%; display: none;"></video>
+                    <canvas id="cameraCanvas" style="display: none;"></canvas>
+                    <img id="cameraPreview" class="preview">
+                </div>
+                
+                <div class="form-group">
+                    <label for="cameraLanguage">Idioma:</label>
+                    <select id="cameraLanguage">
+                        <option value="por">Português</option>
+                        <option value="eng">Inglês</option>
+                        <option value="spa">Espanhol</option>
+                        <option value="auto">Auto-detecção</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="cameraDocType">Tipo de Documento:</label>
+                    <select id="cameraDocType">
+                        <option value="rg">RG</option>
+                        <option value="cpf">CPF</option>
+                        <option value="cnh">CNH</option>
+                        <option value="generic">Genérico</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="cameraEnhanced" checked>
+                        Processamento avançado
+                    </label>
+                </div>
+                
+                <button id="processCameraBtn" disabled>Processar Imagem</button>
+                
+                <div id="cameraLoading" class="loading">
+                    <div class="spinner"></div>
+                    <p>Processando imagem...</p>
+                </div>
+                
+                <div id="cameraResults" class="results" style="display: none;"></div>
+                <div id="cameraError" class="error" style="display: none;"></div>
+            </div>
+            
+            <!-- Stats Tab -->
+            <div id="stats-tab" class="tab-content">
+                <h2>Estatísticas da API</h2>
+                <button id="refreshStatsBtn">Atualizar Estatísticas</button>
+                
+                <div id="statsLoading" class="loading">
+                    <div class="spinner"></div>
+                    <p>Carregando estatísticas...</p>
+                </div>
+                
+                <div id="statsContainer" class="stats" style="margin-top: 20px;">
+                    <!-- Stats will be loaded here -->
+                </div>
+                
+                <div id="statsError" class="error" style="display: none;"></div>
+                
+                <h3 style="margin-top: 30px;">Status da API</h3>
+                <div id="healthContainer">
+                    <!-- Health status will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // API URL configuration
+            const API_URL = 'http://localhost:8000';
+            
+            // DOM Elements
+            const tabs = document.querySelectorAll('.tab');
+            const tabContents = document.querySelectorAll('.tab-content');
+            
+            // Upload tab elements
+            const fileInput = document.getElementById('file');
+            const uploadPreview = document.getElementById('uploadPreview');
+            const uploadBtn = document.getElementById('uploadBtn');
+            const uploadLoading = document.getElementById('uploadLoading');
+            const uploadResults = document.getElementById('uploadResults');
+            const uploadError = document.getElementById('uploadError');
+            
+            // Camera tab elements
+            const startCameraBtn = document.getElementById('startCameraBtn');
+            const captureCameraBtn = document.getElementById('captureCameraBtn');
+            const retakeCameraBtn = document.getElementById('retakeCameraBtn');
+            const cameraView = document.getElementById('cameraView');
+            const cameraCanvas = document.getElementById('cameraCanvas');
+            const cameraPreview = document.getElementById('cameraPreview');
+            const processCameraBtn = document.getElementById('processCameraBtn');
+            const cameraLoading = document.getElementById('cameraLoading');
+            const cameraResults = document.getElementById('cameraResults');
+            const cameraError = document.getElementById('cameraError');
+            
+            // Stats tab elements
+            const refreshStatsBtn = document.getElementById('refreshStatsBtn');
+            const statsLoading = document.getElementById('statsLoading');
+            const statsContainer = document.getElementById('statsContainer');
+            const statsError = document.getElementById('statsError');
+            const healthContainer = document.getElementById('healthContainer');
+            
+            // Camera variables
+            let stream = null;
+            let capturedImage = null;
+            
+            // Tab switching
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    tabs.forEach(t => t.classList.remove('active'));
+                    tabContents.forEach(c => c.classList.remove('active'));
+                    
+                    tab.classList.add('active');
+                    const target = tab.getAttribute('data-target');
+                    document.getElementById(target).classList.add('active');
+                    
+                    // Stop camera if switching away from camera tab
+                    if (target !== 'camera-tab') {
+                        stopCamera();
+                    }
+                    
+                    // Load stats if switching to stats tab
+                    if (target === 'stats-tab') {
+                        fetchStats();
+                        fetchHealth();
+                    }
+                });
+            });
+            
+            // File preview
+            fileInput.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    uploadPreview.src = event.target.result;
+                    uploadPreview.style.display = 'block';
+                    uploadBtn.disabled = false;
+                };
+                reader.readAsDataURL(file);
+            });
+            
+            // Process uploaded file
+            uploadBtn.addEventListener('click', function() {
+                const file = fileInput.files[0];
+                if (!file) return;
+                
+                const language = document.getElementById('language').value;
+                const docType = document.getElementById('docType').value;
+                const enhanced = document.getElementById('enhanced').checked;
+                
+                // Clear previous results
+                uploadResults.style.display = 'none';
+                uploadError.style.display = 'none';
+                uploadLoading.style.display = 'block';
+                
+                // Create form data
+                const formData = new FormData();
+                formData.append('file', file);
+                
+                // Send request
+                fetch(`${API_URL}/ocr/upload?language=${language}&document_type=${docType}&enhanced_processing=${enhanced}`, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    uploadLoading.style.display = 'none';
+                    
+                    if (data.status === 'error') {
+                        uploadError.textContent = data.message || 'Erro ao processar documento';
+                        uploadError.style.display = 'block';
+                        return;
+                    }
+                    
+                    // Display results
+                    uploadResults.innerHTML = `
+                        <h3>Resultados OCR</h3>
+                        <p><strong>Status:</strong> ${data.status}</p>
+                        <p><strong>Tempo de processamento:</strong> ${data.processing_time_ms?.toFixed(2) || 'N/A'} ms</p>
+                        <p><strong>Idioma detectado:</strong> ${data.language_detected || 'N/A'}</p>
+                        <p><strong>Tipo de documento:</strong> ${data.document_type || 'N/A'}</p>
+                        <h4>Texto extraído:</h4>
+                    `;
+                    
+                    if (data.text && data.text.length > 0) {
+                        const textList = document.createElement('div');
+                        data.text.forEach(line => {
+                            const item = document.createElement('div');
+                            item.className = 'result-item';
+                            item.textContent = line;
+                            textList.appendChild(item);
+                        });
+                        uploadResults.appendChild(textList);
+                    } else {
+                        uploadResults.innerHTML += '<p>Nenhum texto extraído.</p>';
+                    }
+                    
+                    uploadResults.style.display = 'block';
+                })
+                .catch(error => {
+                    uploadLoading.style.display = 'none';
+                    uploadError.textContent = `Erro: ${error.message}`;
+                    uploadError.style.display = 'block';
+                });
+            });
+            
+            // Camera functions
+            function startCamera() {
+                if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                    navigator.mediaDevices.getUserMedia({ video: true })
+                        .then(function(mediaStream) {
+                            stream = mediaStream;
+                            cameraView.srcObject = mediaStream;
+                            cameraView.style.display = 'block';
+                            cameraPreview.style.display = 'none';
+                            startCameraBtn.style.display = 'none';
+                            captureCameraBtn.style.display = 'inline-block';
+                            retakeCameraBtn.style.display = 'none';
+                            processCameraBtn.disabled = true;
+                            cameraView.play();
+                        })
+                        .catch(function(error) {
+                            console.error('Camera access error:', error);
+                            cameraError.textContent = 'Não foi possível acessar a câmera. Verifique as permissões.';
+                            cameraError.style.display = 'block';
+                        });
+                } else {
+                    cameraError.textContent = 'Seu navegador não suporta acesso à câmera.';
+                    cameraError.style.display = 'block';
+                }
+            }
+            
+            function stopCamera() {
+                if (stream) {
+                    stream.getTracks().forEach(track => track.stop());
+                    stream = null;
+                }
+                cameraView.style.display = 'none';
+                startCameraBtn.style.display = 'inline-block';
+                captureCameraBtn.style.display = 'none';
+            }
+            
+            function captureImage() {
+                if (!stream) return;
+                
+                // Set canvas dimensions to match video
+                cameraCanvas.width = cameraView.videoWidth;
+                cameraCanvas.height = cameraView.videoHeight;
+                
+                // Draw the current video frame
+                const ctx = cameraCanvas.getContext('2d');
+                ctx.drawImage(cameraView, 0, 0, cameraCanvas.width, cameraCanvas.height);
+                
+                // Get image as data URL
+                capturedImage = cameraCanvas.toDataURL('image/jpeg');
+                
+                // Display preview
+                cameraPreview.src = capturedImage;
+                cameraPreview.style.display = 'block';
+                cameraView.style.display = 'none';
+                
+                // Update buttons
+                captureCameraBtn.style.display = 'none';
+                retakeCameraBtn.style.display = 'inline-block';
+                processCameraBtn.disabled = false;
+            }
+            
+            // Camera event listeners
+            startCameraBtn.addEventListener('click', startCamera);
+            captureCameraBtn.addEventListener('click', captureImage);
+            retakeCameraBtn.addEventListener('click', function() {
+                capturedImage = null;
+                cameraPreview.style.display = 'none';
+                cameraView.style.display = 'block';
+                captureCameraBtn.style.display = 'inline-block';
+                retakeCameraBtn.style.display = 'none';
+                processCameraBtn.disabled = true;
+                
+                // Clear previous results
+                cameraResults.style.display = 'none';
+                cameraError.style.display = 'none';
+            });
+            
+            // Process camera image
+            processCameraBtn.addEventListener('click', function() {
+                if (!capturedImage) return;
+                
+                const language = document.getElementById('cameraLanguage').value;
+                const docType = document.getElementById('cameraDocType').value;
+                const enhanced = document.getElementById('cameraEnhanced').checked;
+                
+                // Clear previous results
+                cameraResults.style.display = 'none';
+                cameraError.style.display = 'none';
+                cameraLoading.style.display = 'block';
+                
+                // Prepare request data
+                const requestData = {
+                    image_data: capturedImage,
+                    language: language,
+                    document_type: docType,
+                    enhanced_processing: enhanced
+                };
+                
+                // Send request
+                fetch(`${API_URL}/ocr/camera`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestData)
+                })
+                .then(response => response.json())
+                .then(data => {
+                    cameraLoading.style.display = 'none';
+                    
+                    if (data.status === 'error') {
+                        cameraError.textContent = data.message || 'Erro ao processar imagem';
+                        cameraError.style.display = 'block';
+                        return;
+                    }
+                    
+                    // Display results
+                    cameraResults.innerHTML = `
+                        <h3>Resultados OCR</h3>
+                        <p><strong>Status:</strong> ${data.status}</p>
+                        <p><strong>Tempo de processamento:</strong> ${data.processing_time_ms?.toFixed(2) || 'N/A'} ms</p>
+                        <p><strong>Idioma detectado:</strong> ${data.language_detected || 'N/A'}</p>
+                        <p><strong>Tipo de documento:</strong> ${data.document_type || 'N/A'}</p>
+                        <h4>Texto extraído:</h4>
+                    `;
+                    
+                    if (data.text && data.text.length > 0) {
+                        const textList = document.createElement('div');
+                        data.text.forEach(line => {
+                            const item = document.createElement('div');
+                            item.className = 'result-item';
+                            item.textContent = line;
+                            textList.appendChild(item);
+                        });
+                        cameraResults.appendChild(textList);
+                    } else {
+                        cameraResults.innerHTML += '<p>Nenhum texto extraído.</p>';
+                    }
+                    
+                    cameraResults.style.display = 'block';
+                })
+                .catch(error => {
+                    cameraLoading.style.display = 'none';
+                    cameraError.textContent = `Erro: ${error.message}`;
+                    cameraError.style.display = 'block';
+                });
+            });
+            
+            // Stats functions
+            function fetchStats() {
+                statsContainer.innerHTML = '';
+                statsError.style.display = 'none';
+                statsLoading.style.display = 'block';
+                
+                fetch(`${API_URL}/api/stats`)
+                    .then(response => response.json())
+                    .then(data => {
+                        statsLoading.style.display = 'none';
+                        
+                        statsContainer.innerHTML = `
+                            <div class="stat-card">
+                                <h3>Total de Requisições</h3>
+                                <div class="stat-value">${data.total_requests}</div>
+                            </div>
+                            <div class="stat-card">
+                                <h3>Requisições com Sucesso</h3>
+                                <div class="stat-value">${data.successful_requests}</div>
+                            </div>
+                            <div class="stat-card">
+                                <h3>Requisições com Falha</h3>
+                                <div class="stat-value">${data.failed_requests}</div>
+                            </div>
+                            <div class="stat-card">
+                                <h3>Tempo Médio (ms)</h3>
+                                <div class="stat-value">${data.average_processing_time_ms.toFixed(2)}</div>
+                            </div>
+                        `;
+                    })
+                    .catch(error => {
+                        statsLoading.style.display = 'none';
+                        statsError.textContent = `Erro ao carregar estatísticas: ${error.message}`;
+                        statsError.style.display = 'block';
+                    });
+            }
+            
+            function fetchHealth() {
+                fetch(`${API_URL}/api/health`)
+                    .then(response => response.json())
+                    .then(data => {
+                        let endpointsHtml = '<ul>';
+                        data.endpoints.forEach(endpoint => {
+                            endpointsHtml += `<li><strong>${endpoint.path}</strong> (${endpoint.methods.join(', ')}): ${endpoint.description}</li>`;
+                        });
+                        endpointsHtml += '</ul>';
+                        
+                        healthContainer.innerHTML = `
+                            <div style="margin-bottom: 20px;">
+                                <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                                    <div style="width: 12px; height: 12px; border-radius: 50%; background-color: ${data.status === 'healthy' ? '#27ae60' : '#e74c3c'}; margin-right: 8px;"></div>
+                                    <strong>Status:</strong> ${data.status}
+                                </div>
+                                <div><strong>Versão:</strong> ${data.version}</div>
+                                <div><strong>Tipo:</strong> ${data.api_type}</div>
+                            </div>
+                            <div>
+                                <h4>Endpoints Disponíveis:</h4>
+                                ${endpointsHtml}
+                            </div>
+                        `;
+                    })
+                    .catch(error => {
+                        healthContainer.innerHTML = `<div class="error">Erro ao verificar saúde da API: ${error.message}</div>`;
+                    });
+            }
+            
+            // Stats event listeners
+            refreshStatsBtn.addEventListener('click', function() {
+                fetchStats();
+                fetchHealth();
+            });
+        });
+    </script>
+</body>
+</html>
