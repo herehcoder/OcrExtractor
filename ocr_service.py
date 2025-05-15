@@ -1,6 +1,7 @@
 import os
 import logging
 import re
+import pytesseract
 from PIL import Image, ImageFilter, ImageEnhance
 from io import BytesIO
 from typing import List, Optional
@@ -44,7 +45,7 @@ def preprocess_image(image):
 
 def extract_text_from_image(image):
     """
-    Simulate text extraction from preprocessed image
+    Extract text from image using Tesseract OCR
     
     Args:
         image: PIL Image
@@ -52,22 +53,25 @@ def extract_text_from_image(image):
     Returns:
         List[str]: List of extracted text lines
     """
-    # In a real implementation, we would use a proper OCR library here,
-    # but since we're having dependency issues, we'll simulate the OCR process
-    
-    # For demonstration, return some sample extracted text
-    # In a real implementation, this would use a proper OCR engine
-    sample_texts = [
-        "Nome: João da Silva",
-        "CPF: 123.456.789-10",
-        "Data de Nascimento: 01/01/1980",
-        "RG: 12.345.678-9",
-        "Endereço: Rua das Flores, 123"
-    ]
-    
-    # In a real implementation, we would have actual text extraction here
-    # For now, we'll return the sample text as a demonstration
-    return sample_texts
+    try:
+        # Configure Tesseract for Portuguese language
+        custom_config = r'--oem 3 --psm 6 -l por'
+        
+        # Extract text using pytesseract
+        extracted_text = pytesseract.image_to_string(image, config=custom_config)
+        
+        # Split text into lines and remove empty lines
+        text_lines = [line.strip() for line in extracted_text.split('\n') if line.strip()]
+        
+        if not text_lines:
+            logger.warning("No text detected in the image")
+            return ["Nenhum texto detectado na imagem. Tente uma imagem com texto mais claro."]
+        
+        return text_lines
+        
+    except Exception as e:
+        logger.error(f"Error extracting text with Tesseract: {str(e)}")
+        return [f"Erro ao processar a imagem: {str(e)}"]
 
 def process_image_ocr(image) -> List[str]:
     """
@@ -82,19 +86,15 @@ def process_image_ocr(image) -> List[str]:
     logger.debug("Processing image with OCR")
     
     try:
-        # For demonstration purposes, we'll skip actual OCR processing
-        # and return sample data
-        text_lines = [
-            "Nome: João da Silva",
-            "CPF: 123.456.789-10",
-            "Data de Nascimento: 01/01/1980",
-            "RG: 12.345.678-9",
-            "Endereço: Rua das Flores, 123"
-        ]
+        # Preprocess the image
+        processed_image = preprocess_image(image)
+        
+        # Extract text from the processed image
+        text_lines = extract_text_from_image(processed_image)
         
         logger.info(f"OCR processing complete, extracted {len(text_lines)} text lines")
         return text_lines
         
     except Exception as e:
         logger.error(f"Error during OCR processing: {str(e)}")
-        return ["Error processing image. Please try again with a clearer image."]
+        return [f"Erro ao processar imagem: {str(e)}. Tente novamente com uma imagem mais clara."]
