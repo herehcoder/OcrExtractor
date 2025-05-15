@@ -8,8 +8,8 @@
 }
 
 body {
-  background-color: var(--light-color);
-  color: var(--dark-color);
+  background-color: var(--dark-color);
+  color: var(--light-color);
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   line-height: 1.6;
   margin: 0;
@@ -43,11 +43,12 @@ header p {
 }
 
 .card {
-  background-color: #fff;
+  background-color: #374151;
   border-radius: 10px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
   padding: 20px;
   margin-bottom: 20px;
+  color: #f3f4f6;
 }
 
 .tabs {
@@ -161,7 +162,7 @@ header p {
 }
 
 .result-container {
-  background-color: #f8f9fa;
+  background-color: #1f2937;
   border-radius: 5px;
   padding: 15px;
   margin-top: 20px;
@@ -171,10 +172,11 @@ header p {
 
 .result-item {
   padding: 8px 12px;
-  background-color: #fff;
+  background-color: #374151;
   border-radius: 4px;
   margin-bottom: 10px;
   border-left: 4px solid var(--primary-color);
+  color: #f3f4f6;
 }
 
 .error-message {
