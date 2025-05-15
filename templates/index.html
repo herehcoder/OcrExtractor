@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OCR Document Scanner</title>
+    <link rel="stylesheet" href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body data-bs-theme="dark">
+    <header>
+        <div class="container">
+            <h1>OCR Document Scanner</h1>
+            <p>Extract text from documents using camera or file upload</p>
+        </div>
+    </header>
+    
+    <div class="container">
+        <div class="card">
+            <div class="tabs">
+                <div class="tab active" data-target="camera-tab-content">Camera</div>
+                <div class="tab" data-target="upload-tab-content">Upload Document</div>
+            </div>
+            
+            <!-- Camera Tab Content -->
+            <div id="camera-tab-content" class="tab-content active">
+                <div id="camera-container">
+                    <video id="camera-view" autoplay playsinline></video>
+                    <img id="camera-preview" alt="Captured preview">
+                    
+                    <div class="camera-controls">
+                        <button id="capture-btn" class="btn">Capture</button>
+                        <button id="retake-btn" class="btn" style="display: none;">Retake</button>
+                        <button id="process-btn" class="btn btn-secondary" style="display: none;">Process</button>
+                    </div>
+                    
+                    <div id="camera-loading" class="loading">
+                        <div class="loading-spinner"></div>
+                        <p>Processing image...</p>
+                    </div>
+                    
+                    <div id="camera-result-container" class="result-container"></div>
+                </div>
+            </div>
+            
+            <!-- Upload Tab Content -->
+            <div id="upload-tab-content" class="tab-content">
+                <div id="upload-container">
+                    <div class="file-upload">
+                        <label for="file-input" class="file-upload-label">
+                            Select Document Image
+                        </label>
+                        <input type="file" id="file-input" accept="image/*">
+                    </div>
+                    
+                    <img id="upload-preview" alt="Upload preview">
+                    
+                    <div>
+                        <button id="upload-btn" class="btn btn-secondary" disabled>Process Document</button>
+                    </div>
+                    
+                    <div id="upload-loading" class="loading">
+                        <div class="loading-spinner"></div>
+                        <p>Processing document...</p>
+                    </div>
+                    
+                    <div id="upload-result-container" class="result-container"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>About this OCR Service</h2>
+            <p>This application uses OCR technology to extract text from documents like ID cards, CPF documents, or any other type of identification.</p>
+            <p>Features:</p>
+            <ul>
+                <li>Real-time camera capture and processing</li>
+                <li>Document file upload and processing</li>
+                <li>Optimized for Portuguese language documents</li>
+                <li>Extract information like name, CPF, and other document data</li>
+            </ul>
+            <p>You can use this service to quickly digitize document information for data entry, form filling, or verification purposes.</p>
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
