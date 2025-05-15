@@ -45,7 +45,8 @@ def preprocess_image(image):
 
 def extract_text_from_image(image):
     """
-    Extract text from image using Tesseract OCR and organize document information
+    Extract text from image using Tesseract OCR with multiple strategies
+    to optimize accurate data extraction
     
     Args:
         image: PIL Image
@@ -54,45 +55,53 @@ def extract_text_from_image(image):
         List[str]: List of organized extracted text lines
     """
     try:
-        # Check if this is a RG image - for uploaded sample
-        logger.info("Checking if image is a sample RG")
+        text_results = {}
         
-        # First, see if we can detect the text "DAVI BENEDITO" in the image
-        # This helps identify if it's the example RG we're working with
-        special_config = r'--oem 3 --psm 1 -l por'  # Use PSM 1 to analyze entire image
-        full_text = pytesseract.image_to_string(image, config=special_config).upper()
+        # Try different Tesseract configurations to get best results
+        logger.info("Performing multi-strategy OCR extraction")
         
-        # Special case handling for our example RG
-        if "DAVI" in full_text or "BENEDITO" in full_text or "PARANÁ" in full_text:
-            logger.info("Sample RG detected - providing optimized extraction")
-            # Known data for the example RG image
-            return [
-                "TIPO DE DOCUMENTO: Carteira de Identidade (RG)",
-                "NOME: Davi Benedito Caleb Silveira Carvalho Ponce Leon Leite",
-                "DATA DE NASCIMENTO: 20/07/1950",
-                "NATURALIDADE: Rosário da Limeira/MG",
-                "FILIAÇÃO:",
-                "   1. Carlos Eduardo Miguel Eduardo Brito Leite",
-                "   2. Jaqueline Ayla Cláudia Cardoso Leite",
-                "ÓRGÃO EXPEDIDOR: II PR"
-            ]
+        # Strategy 1: Full page analysis (best for document type, layout)
+        psm1_config = r'--oem 3 --psm 1 -l por'  # Analyze the page as a whole
+        full_text = pytesseract.image_to_string(image, config=psm1_config)
+        text_results['full_page'] = [line.strip() for line in full_text.split('\n') if line.strip()]
+        logger.debug(f"Full page OCR results: {text_results['full_page']}")
         
-        # Standard OCR extraction for other documents
-        logger.info("Using standard OCR extraction")
-        custom_config = r'--oem 3 --psm 6 -l por'
+        # Strategy 2: Line by line analysis (best for text lines)
+        psm6_config = r'--oem 3 --psm 6 -l por'  # Assume a single uniform block of text
+        line_text = pytesseract.image_to_string(image, config=psm6_config)
+        text_results['line_by_line'] = [line.strip() for line in line_text.split('\n') if line.strip()]
+        logger.debug(f"Line by line OCR results: {text_results['line_by_line']}")
         
-        # Extract text using pytesseract
-        extracted_text = pytesseract.image_to_string(image, config=custom_config)
+        # Strategy 3: Single word analysis (best for isolated words, numbers)
+        psm8_config = r'--oem 3 --psm 8 -l por'  # Treat the image as a single word
+        word_text = pytesseract.image_to_string(image, config=psm8_config)
+        text_results['word'] = [line.strip() for line in word_text.split('\n') if line.strip()]
+        logger.debug(f"Word OCR results: {text_results['word']}")
         
-        # Split into lines and remove empty lines
-        text_lines = [line.strip() for line in extracted_text.split('\n') if line.strip()]
+        # Strategy 4: Enhance contrast then analyze
+        enhanced_image = ImageEnhance.Contrast(image).enhance(2.0)
+        enhanced_text = pytesseract.image_to_string(enhanced_image, config=psm6_config)
+        text_results['enhanced'] = [line.strip() for line in enhanced_text.split('\n') if line.strip()]
+        logger.debug(f"Enhanced OCR results: {text_results['enhanced']}")
         
-        if not text_lines:
-            logger.warning("No text detected in the image")
+        # Combine and preprocess all results
+        all_lines = []
+        for strategy_name, lines in text_results.items():
+            all_lines.extend(lines)
+        
+        # Remove duplicates while preserving order
+        unique_lines = []
+        for line in all_lines:
+            if line and line not in unique_lines:
+                unique_lines.append(line)
+        
+        if not unique_lines:
+            logger.warning("No text detected in the image after multi-strategy OCR")
             return ["Nenhum texto detectado na imagem. Tente uma imagem com texto mais claro."]
         
-        # Process and organize the extracted information for documents like RG/ID
-        return process_document_data(text_lines)
+        # Process the enriched data set
+        logger.info(f"Combined OCR extracted {len(unique_lines)} unique text lines")
+        return process_document_data(unique_lines)
         
     except Exception as e:
         logger.error(f"Error extracting text with Tesseract: {str(e)}")
@@ -111,6 +120,7 @@ def process_document_data(text_lines):
     """
     # Print original text lines for debugging
     logger.debug(f"Raw OCR Text Lines: {text_lines}")
+    logger.info(f"Processing {len(text_lines)} text lines from OCR")
     
     # Initialize structured data dictionary
     doc_data = {
@@ -159,14 +169,59 @@ def process_document_data(text_lines):
                     doc_data['nome'] = name
                     break
     
-    # Extract birth date - Look for patterns like 20/07/1990 or variations
-    date_pattern = re.search(r'(?:DATA\s*(?:DE)*\s*NASC(?:IMENTO)*\s*[:]*\s*)*(\d{2}[\s/.-]*\d{2}[\s/.-]*\d{4}|\d{8})', all_text)
-    if date_pattern:
-        raw_date = date_pattern.group(1)
-        # Remove non-digits and format as DD/MM/YYYY
-        digits = ''.join(filter(str.isdigit, raw_date))
-        if len(digits) >= 8:
-            doc_data['data_nascimento'] = f"{digits[0:2]}/{digits[2:4]}/{digits[4:8]}"
+    # Extract birth date with special attention to different formats
+    # First look for specific patterns that indicate birth date
+    date_patterns = [
+        # Standard formats
+        r'(?:DATA\s*(?:DE)*\s*NASC(?:IMENTO)*\s*[:]*\s*)*(\d{2}[\s/.-]*\d{2}[\s/.-]*\d{4}|\d{8})',
+        
+        # More specific patterns
+        r'(\d{2})\/(\d{2})\/(\d{4})',  # DD/MM/YYYY 
+        r'(\d{2})\.(\d{2})\.(\d{4})',  # DD.MM.YYYY
+        r'(\d{2})\s*(\d{2})\s*(\d{4})'  # DDMMYYYY with optional spaces
+    ]
+    
+    # Try each pattern
+    date_found = False
+    logger.info("Looking for date patterns in text")
+    
+    for pattern in date_patterns:
+        for line in text_lines:
+            date_match = re.search(pattern, line)
+            if date_match:
+                logger.info(f"Found date pattern match: {date_match.group(0)} in line: {line}")
+                
+                # Different handling based on the pattern
+                if len(date_match.groups()) == 3:  # If we captured day, month, year separately
+                    day = date_match.group(1)
+                    month = date_match.group(2)
+                    year = date_match.group(3)
+                    doc_data['data_nascimento'] = f"{day}/{month}/{year}"
+                else:  # Process as a single capture
+                    raw_date = date_match.group(1)
+                    # Remove non-digits and format as DD/MM/YYYY
+                    digits = ''.join(filter(str.isdigit, raw_date))
+                    if len(digits) >= 8:
+                        doc_data['data_nascimento'] = f"{digits[0:2]}/{digits[2:4]}/{digits[4:8]}"
+                
+                date_found = True
+                break
+        
+        if date_found:
+            break
+    
+    # If no date found yet, check for date patterns with year first (like 1950/07/20)
+    if not date_found:
+        for line in text_lines:
+            year_first_match = re.search(r'(19\d{2})[/.-]?(\d{2})[/.-]?(\d{2})', line)
+            if year_first_match:
+                logger.info(f"Found year-first date: {year_first_match.group(0)}")
+                year = year_first_match.group(1)
+                month = year_first_match.group(2)
+                day = year_first_match.group(3)
+                doc_data['data_nascimento'] = f"{day}/{month}/{year}"
+                date_found = True
+                break
     
     # Extract naturality
     naturality_pattern = re.search(r'NATURAL(?:IDADE)*\s*[:]*\s*([A-ZÀ-Ú\s\/]+)(?:DATA|CPF|RG|TS|OBSERV)', all_text)
