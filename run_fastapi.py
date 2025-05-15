@@ -1,4 +1,5 @@
 import uvicorn
+from main import fastapi_app
 
 if __name__ == "__main__":
-    uvicorn.run("asgi:app", host="0.0.0.0", port=5000, reload=True)
+    uvicorn.run(fastapi_app, host="0.0.0.0", port=8000, reload=True)
