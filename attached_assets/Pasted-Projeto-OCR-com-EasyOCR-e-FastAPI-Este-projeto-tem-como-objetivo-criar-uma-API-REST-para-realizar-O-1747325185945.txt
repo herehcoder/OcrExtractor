@@ -1,0 +1,116 @@
+Projeto OCR com EasyOCR e FastAPI
+Este projeto tem como objetivo criar uma API REST para realizar OCR (Reconhecimento Óptico de Caracteres) em documentos utilizando a biblioteca EasyOCR, que não possui uma API nativa. Para isso, optamos pelo FastAPI, uma framework moderna, rápida e eficiente para construir APIs em Python.
+A API foi projetada para atender sistemas como o de uma escola, permitindo duas formas principais de uso: captura de imagens diretamente pela câmera ou envio de documentos (ex.: RG, CPF). O OCR extrai o texto e entrega os dados identificados de forma estruturada, como nome, CPF, ou outros campos, para facilitar o uso em cadastros ou formulários.
+Nosso foco inicial é implementar o OCR de forma robusta. Futuramente, adicionaremos funcionalidades como a Repetição Inteligente Zero, que evita pedir o mesmo dado duas vezes, mesmo entre formulários diferentes.
+
+Requisitos
+Para rodar o projeto, você precisará de:
+
+Python 3.8 ou superior
+EasyOCR: Biblioteca de OCR open-source.
+FastAPI: Framework para criar a API REST.
+Uvicorn: Servidor ASGI para rodar a API.
+OpenCV: Para captura de imagens da câmera.
+
+
+Instalação
+Siga os passos abaixo para configurar o ambiente:
+
+Clone o repositório:
+git clone https://github.com/seu-usuario/seu-repositorio.git
+cd seu-repositorio
+
+
+Crie e ative um ambiente virtual:
+python -m venv venv
+source venv/bin/activate  # Linux/Mac
+venv\Scripts\activate     # Windows
+
+
+Instale as dependências:
+pip install -r requirements.txt
+
+O arquivo requirements.txt deve incluir:
+easyocr
+fastapi
+uvicorn
+opencv-python
+
+
+
+
+Uso
+Para iniciar a API, execute o comando abaixo:
+uvicorn main:app --reload
+
+A API estará disponível em http://localhost:8000. Acesse a documentação interativa em http://localhost:8000/docs para testar os endpoints.
+Endpoints Disponíveis
+
+POST /ocr/camera  
+
+Descrição: Realiza OCR em uma imagem capturada pela câmera em tempo real.
+Uso: Ideal para situações onde o usuário aponta a câmera para um documento físico.
+Exemplo de resposta:{
+  "text": ["Nome: João Silva", "CPF: 123.456.789-00"],
+  "status": "success"
+}
+
+
+
+
+POST /ocr/upload  
+
+Descrição: Realiza OCR em um documento enviado como arquivo (ex.: PNG, JPG).
+Uso: Perfeito para sistemas escolares onde o usuário anexa um documento digital.
+Exemplo de requisição:curl -X POST "http://localhost:8000/ocr/upload" -F "file=@documento.png"
+
+
+Exemplo de resposta:{
+  "text": ["Nome: Maria Oliveira", "Data de Nascimento: 15/03/1995"],
+  "status": "success"
+}
+
+
+
+
+
+
+Funcionalidades
+OCR com EasyOCR
+O EasyOCR é uma biblioteca gratuita e offline que extrai texto de imagens com alta precisão, suportando mais de 80 idiomas, incluindo português. Ele entrega o texto identificado de forma estruturada, facilitando a separação de campos como nome, CPF, etc.
+API REST com FastAPI
+A escolha do FastAPI garante uma API moderna, rápida e com documentação automática. Isso torna o sistema fácil de integrar com outras aplicações, como um sistema escolar.
+Suporte a Câmera e Upload
+
+Câmera: Permite capturar imagens em tempo real usando OpenCV e processá-las com EasyOCR.
+Upload: Aceita documentos enviados pelo usuário, processando-os e retornando os dados extraídos.
+
+Repetição Inteligente Zero (Em Desenvolvimento)
+Nosso objetivo é implementar um sistema que nunca peça o mesmo dado duas vezes, mesmo entre formulários diferentes. Essa funcionalidade será adicionada em etapas futuras, possivelmente com um banco de dados ou cache para armazenar dados já fornecidos.
+
+Exemplo de Aplicação
+Imagine um sistema escolar onde um novo aluno envia uma foto do RG:
+
+O usuário faz upload do arquivo via /ocr/upload.
+A API processa a imagem com EasyOCR e retorna:{
+  "text": ["Nome: Ana Costa", "CPF: 987.654.321-00", "Data: 10/05/2000"],
+  "status": "success"
+}
+
+
+O sistema escolar usa esses dados para preencher automaticamente um formulário de matrícula.
+
+Ou, com câmera, o aluno aponta o documento, e o texto é extraído em tempo real.
+
+Contribuição
+Contribuições são bem-vindas! Sinta-se à vontade para abrir issues ou enviar pull requests com melhorias.
+
+Licença
+Este projeto está licenciado sob a Licença MIT. Veja o arquivo LICENSE para mais detalhes.
+
+Próximos Passos
+
+Finalizar a implementação básica do OCR com EasyOCR e FastAPI.
+Adicionar a funcionalidade de Repetição Inteligente Zero com um sistema de cache ou banco de dados.
+Melhorar a extração de campos específicos (ex.: usar regex para identificar CPF ou nome).
+
